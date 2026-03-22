@@ -13,7 +13,7 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @StateObject private var viewModel: MagicSightViewModel
     @State private var isShowingFileImporter = false
-    @State private var isShowingConversionAlert = false
+    @State private var isShowingSpatialResult = false
     
     init(viewModel: MagicSightViewModel? = nil) {
         _viewModel = StateObject(wrappedValue: viewModel ?? MagicSightViewModel())
@@ -25,9 +25,13 @@ struct ContentView: View {
                 if let image = viewModel.selectedImage {
                     MagicEyeImageView(
                         image: image,
+                        fileName: viewModel.selectedFileName,
                         isMagicEye: viewModel.isMagicEye,
                         isScanning: viewModel.isScanning,
-                        isShowingConversionAlert: $isShowingConversionAlert
+                        isConverting: viewModel.isConverting,
+                        onConvert: {
+                            viewModel.convertImage()
+                        }
                     )
                 } else {
                     ContentUnavailableView {
@@ -38,6 +42,19 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("Magic Sight")
+            .navigationDestination(isPresented: $isShowingSpatialResult) {
+                if let result = viewModel.conversionResult {
+                    SpatialResultView(
+                        result: result,
+                        fileName: viewModel.selectedFileName
+                    )
+                }
+            }
+            .onChange(of: viewModel.conversionResult != nil) { newValue in
+                if newValue {
+                    isShowingSpatialResult = true
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     ThresholdSettingsMenu(viewModel: viewModel)
@@ -53,7 +70,8 @@ struct ContentView: View {
                 
                 ToolbarItemGroup(placement: .bottomBar) {
                     PhotosPicker(selection: $viewModel.imagePickerItem,
-                                 matching: .images) {
+                                 matching: .images,
+                                 photoLibrary: .shared()) {
                         Label("Photos", systemImage: "photo.fill")
                     }
                     
@@ -88,11 +106,6 @@ struct ContentView: View {
                         .cornerRadius(8)
                 }
             }
-            .alert("Spatial Conversion", isPresented: $isShowingConversionAlert) {
-                Button("Got it") { }
-            } message: {
-                Text("Conversion to Spatial image will be implemented in Stage 3.")
-            }
             .alert("Error", isPresented: Binding<Bool>(
                 get: { viewModel.errorMessage != nil },
                 set: { if !$0 { viewModel.errorMessage = nil } }
@@ -107,15 +120,12 @@ struct ContentView: View {
     }
 }
 
-
-
 #Preview("Empty State") { @MainActor in
     ContentView()
 }
 
 #Preview("Loaded Image") { @MainActor in
     let viewModel = MagicSightViewModel()
-    // Using a system image for preview purposes
     viewModel.selectedImage = UIImage(systemName: "photo.artframe")
     return ContentView(viewModel: viewModel)
 }
@@ -123,6 +133,5 @@ struct ContentView: View {
 #Preview("Magic Eye State") { @MainActor in
     let viewModel = MagicSightViewModel()
     viewModel.selectedImage = UIImage(named: "shark")
-    // Let the view model's automatic analysis handle setting isMagicEye
     return ContentView(viewModel: viewModel)
 }

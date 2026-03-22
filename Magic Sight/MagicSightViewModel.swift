@@ -2,13 +2,14 @@
 //  MagicSightViewModel.swift
 //  Magic Sight
 //
-//  Created by Mark Bush on 21/03/2026.
+//  Created by Gemini on 21/03/2026.
 //
 
 import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
 import OSLog
+import Photos
 internal import Combine
 
 @MainActor
@@ -29,13 +30,24 @@ class MagicSightViewModel: ObservableObject {
     @Published var selectedImage: UIImage? {
         didSet {
             isMagicEye = false
+            detectedPeriod = nil
+            conversionResult = nil
             if let image = selectedImage {
                 analyzeImage(image)
+            } else {
+                selectedFileName = nil
             }
         }
     }
+    
+    @Published var selectedFileName: String?
     @Published var isMagicEye = false
+    @Published var detectedPeriod: Int?
     @Published var isScanning = false
+    @Published var isConverting = false
+    
+    @Published var conversionResult: MagicEyeConverter.ConversionResult?
+    
     @Published var imagePickerItem: PhotosPickerItem? {
         didSet {
             if let item = imagePickerItem {
@@ -50,6 +62,33 @@ class MagicSightViewModel: ObservableObject {
     func loadTransferable(from item: PhotosPickerItem) {
         isLoading = true
         errorMessage = nil
+        
+        // Attempt to get the original filename from Photos library
+        Task {
+            if let identifier = item.itemIdentifier {
+                logger.debug("Fetching PHAsset for identifier: \(identifier)")
+                let result = PHAsset.fetchAssets(withLocalIdentifiers: [identifier], options: nil)
+                if let asset = result.firstObject {
+                    let resources = PHAssetResource.assetResources(for: asset)
+                    if let filename = resources.first?.originalFilename {
+                        let name = (filename as NSString).deletingPathExtension
+                        logger.info("Found original filename: \(name)")
+                        await MainActor.run {
+                            self.selectedFileName = name
+                        }
+                    } else {
+                        logger.warning("No original filename found in resources.")
+                        await MainActor.run { self.selectedFileName = "Photo" }
+                    }
+                } else {
+                    logger.warning("PHAsset not found for identifier.")
+                    await MainActor.run { self.selectedFileName = "Photo" }
+                }
+            } else {
+                logger.warning("No itemIdentifier for PhotosPickerItem.")
+                await MainActor.run { self.selectedFileName = "Photo" }
+            }
+        }
         
         item.loadTransferable(type: Data.self) { result in
             DispatchQueue.main.async {
@@ -73,8 +112,8 @@ class MagicSightViewModel: ObservableObject {
     func loadImage(from url: URL) {
         isLoading = true
         errorMessage = nil
+        selectedFileName = url.deletingPathExtension().lastPathComponent
         
-        // Ensure access to security-scoped resource if needed
         let accessGranted = url.startAccessingSecurityScopedResource()
         defer {
             if accessGranted {
@@ -99,8 +138,34 @@ class MagicSightViewModel: ObservableObject {
         selectedImage = nil
         isMagicEye = false
         isScanning = false
+        isConverting = false
+        detectedPeriod = nil
+        conversionResult = nil
+        selectedFileName = nil
         imagePickerItem = nil
         errorMessage = nil
+    }
+
+    func convertImage() {
+        guard let image = selectedImage, let period = detectedPeriod else { return }
+        
+        isConverting = true
+        errorMessage = nil
+        conversionResult = nil // Reset so that a new result always triggers navigation
+        
+        Task {
+            if let result = await MagicEyeConverter.convertToSpatial(image: image, basePeriod: period) {
+                await MainActor.run {
+                    self.conversionResult = result
+                    self.isConverting = false
+                }
+            } else {
+                await MainActor.run {
+                    self.errorMessage = "Failed to convert image."
+                    self.isConverting = false
+                }
+            }
+        }
     }
 
     private func reAnalyzeIfNeeded() {
@@ -111,6 +176,7 @@ class MagicSightViewModel: ObservableObject {
 
     private func analyzeImage(_ image: UIImage) {
         isMagicEye = false
+        detectedPeriod = nil
         isScanning = true
         Task {
             let result = await MagicEyeDetector.detectMagicEye(
@@ -118,10 +184,12 @@ class MagicSightViewModel: ObservableObject {
                 ratioThreshold: detectionRatio,
                 gradientThreshold: detectionGradient
             )
-            logger.info("Image analysis complete (Ratio: \(self.detectionRatio, format: .fixed(precision: 2)), Gradient: \(self.detectionGradient, format: .fixed(precision: 2))). isMagicEye: \(result, privacy: .public)")
+            
             await MainActor.run {
-                self.isMagicEye = result
+                self.detectedPeriod = result
+                self.isMagicEye = (result != nil)
                 self.isScanning = false
+                self.logger.info("Image analysis complete. isMagicEye: \(self.isMagicEye)")
             }
         }
     }
