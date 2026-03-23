@@ -45,12 +45,13 @@ struct ContentView: View {
             .navigationDestination(isPresented: $isShowingSpatialResult) {
                 if let result = viewModel.conversionResult {
                     SpatialResultView(
+                        viewModel: viewModel,
                         result: result,
                         fileName: viewModel.selectedFileName
                     )
                 }
             }
-            .onChange(of: viewModel.conversionResult != nil) { newValue in
+            .onChange(of: viewModel.conversionResult != nil) { oldValue, newValue in
                 if newValue {
                     isShowingSpatialResult = true
                 }

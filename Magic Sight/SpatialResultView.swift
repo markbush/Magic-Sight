@@ -2,7 +2,7 @@
 //  SpatialResultView.swift
 //  Magic Sight
 //
-//  Created by Gemini on 21/03/2026.
+//  Created by Mark Bush on 21/03/2026.
 //
 
 import SwiftUI
@@ -10,6 +10,7 @@ import CoreMotion
 internal import Combine
 
 struct SpatialResultView: View {
+    @ObservedObject var viewModel: MagicSightViewModel
     let result: MagicEyeConverter.ConversionResult
     let fileName: String?
     
@@ -68,11 +69,45 @@ struct SpatialResultView: View {
                 .padding()
         }
         .navigationTitle("Spatial Result")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if viewModel.isExporting {
+                    ProgressView()
+                } else {
+                    Button {
+                        viewModel.exportResult()
+                    } label: {
+                        Label("Share", systemImage: "square.and.arrow.up")
+                    }
+                }
+            }
+        }
+        .onChange(of: viewModel.exportedURL) { oldValue, newValue in
+            if let url = newValue {
+                shareFile(url: url)
+            }
+        }
         .onAppear {
             motionManager.start()
         }
         .onDisappear {
             motionManager.stop()
+        }
+    }
+    
+    private func shareFile(url: URL) {
+        let activityVC = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = windowScene.windows.first?.rootViewController {
+            
+            if let popover = activityVC.popoverPresentationController {
+                popover.sourceView = rootVC.view
+                popover.sourceRect = CGRect(x: rootVC.view.bounds.midX, y: rootVC.view.bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
+            
+            rootVC.present(activityVC, animated: true)
         }
     }
 }

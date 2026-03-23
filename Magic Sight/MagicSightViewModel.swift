@@ -2,7 +2,7 @@
 //  MagicSightViewModel.swift
 //  Magic Sight
 //
-//  Created by Gemini on 21/03/2026.
+//  Created by Mark Bush on 21/03/2026.
 //
 
 import SwiftUI
@@ -45,6 +45,8 @@ class MagicSightViewModel: ObservableObject {
     @Published var detectedPeriod: Int?
     @Published var isScanning = false
     @Published var isConverting = false
+    @Published var isExporting = false
+    @Published var exportedURL: URL?
     
     @Published var conversionResult: MagicEyeConverter.ConversionResult?
     
@@ -139,11 +141,32 @@ class MagicSightViewModel: ObservableObject {
         isMagicEye = false
         isScanning = false
         isConverting = false
+        isExporting = false
         detectedPeriod = nil
         conversionResult = nil
+        exportedURL = nil
         selectedFileName = nil
         imagePickerItem = nil
         errorMessage = nil
+    }
+
+    func exportResult() {
+        guard let result = conversionResult else { return }
+        
+        isExporting = true
+        errorMessage = nil
+        
+        Task {
+            let url = await MagicEyeExportService.createSpatialPhoto(
+                result: result,
+                fileName: selectedFileName ?? "MagicSight"
+            )
+            
+            await MainActor.run {
+                self.exportedURL = url
+                self.isExporting = false
+            }
+        }
     }
 
     func convertImage() {

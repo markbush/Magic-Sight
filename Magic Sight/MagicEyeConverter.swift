@@ -2,7 +2,7 @@
 //  MagicEyeConverter.swift
 //  Magic Sight
 //
-//  Created by Gemini on 21/03/2026.
+//  Created by Mark Bush on 21/03/2026.
 //
 
 import UIKit
