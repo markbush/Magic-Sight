@@ -22,7 +22,6 @@ This project serves as a reference implementation for several cutting-edge Apple
 | Framework | Implementation |
 | :--- | :--- |
 | **Spatial Scene API** | Powers the depth-sensitive "look-around" effect on iOS Lock Screens. |
-| **Metal** | Custom compute shaders for instantaneous SAD (Sum of Absolute Differences) processing. |
 | **ImageIO** | Handles the encoding of stereoscopic pairs into Spatial HEIF metadata. |
 
 -----
@@ -31,7 +30,7 @@ This project serves as a reference implementation for several cutting-edge Apple
 
 The core logic of Magic Sight follows a deterministic three-stage pipeline:
 
-1.  **Period Detection:** The engine samples multiple image rows and uses a gradient-based analysis of pixel differences to identify the steepest rise, accurately determining the base pattern width ($W$).
+1.  **Period Detection:** The engine samples multiple image rows and uses a gradient-based analysis of pixel differences to identify the steepest rise, accurately determining the base pattern width ($W$).  The algorithm for this is based on the [stereogram-solver](https://github.com/piellardj/stereogram-solver) by Jérémie Piellard.
 2.  **Disparity Mapping:** For every pixel $P$ at $(x, y)$, we find the matching pixel $P'$ in the adjacent pattern. The horizontal shift $\Delta x$ is converted into a depth value $Z$:
     $$Z = \frac{f \cdot B}{\Delta x}$$
     *(Where $f$ is the virtual focal length and $B$ is the baseline shift).*

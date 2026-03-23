@@ -2,6 +2,14 @@
 //  MagicEyeDetector.swift
 //  Magic Sight
 //
+//  Created by Mark Bush on 21/03/2026.
+//
+
+// The algorithm in this file is based on the stereogram-solver
+// application by Jérémie Piellard:
+// https://github.com/piellardj/stereogram-solver
+// It has been modified to allow the thresholds to be modified
+// by the user.
 
 import UIKit
 import OSLog
